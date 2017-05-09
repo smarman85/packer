@@ -1,0 +1,28 @@
+Terraform:
+  - tool for building, changing and versioning infrastructure saftely and efficiently
+  - config files describe components needed to run a single app or entire datacenter
+  - can manage low level components like (instances, storage, networking) 
+    as well as high level components such as DNS entries, SaaS features, etc
+
+  - Key featrues:
+    Infrastructure as Code:
+      described using high-level config syntax
+        allows a blueprint of your datacenter to be versioned and treated
+        as you would any other code
+      can be shared and reuesd
+
+    Execution Plans:
+      "planning" step generates an execution plan
+
+      the plan shows what Terraform will do when you call apply
+      avoid surprises
+
+    Resource Graph:
+      Terraform builds a graph of all your resources, and parallelizes the creation and modification
+      of any non-dependaent resources.
+      Terraform builds infrastructure as effciently as possible, and operators get insight into dependencies
+      in their infrastructure
+
+    Change Automation:
+      Avoid human interaction as much as possible
+      execution plan lets you know exactly what will change

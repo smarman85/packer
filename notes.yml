@@ -1,0 +1,191 @@
+Installing packer:
+1. Download the required package from here. https://www.packer.io/downloads.html
+2. Unzip the package and set the path variable in ~/.bashrc
+mv packer /usr/local/bin
+export PATH=$PATH:/path/to/packer
+
+3. Refresh terminal
+source ~/.bashrc
+
+4. Verify packer installation by executing the packer command.
+packer version
+
+Building an Image:
+  - config templates are written in JSON
+  - templates have the following 3 parts
+    1) Variables = define custom variables
+    2) builders  = where you mention all required AMI parameters
+    3) provisioners
+      - integrate shell scripts, ansible play or chef cookbook
+      - configure a required application in the AMI
+      ex)
+				{
+  			"variables": {
+  			  "aws_access_key": "",
+  			  "aws_secret_key": ""
+  			},
+  			"builders": [{
+  			  "type": "amazon-ebs",
+  			  "access_key": "{{user `aws_access_key`}}",
+  			  "secret_key": "{{user `aws_secret_key`}}",
+  			  "region": "us-west-1",
+  			  "source_ami": "ami-sd3543ds",
+  			  "instance_type": "t2.medium",
+  			  "ssh_username": "ec2-user",
+  			  "ami_name": "packer-demo {{timestamp}}"
+  			}],
+
+  			"provisioners": [
+  			{
+  			  "type": "shell",
+  			  "script": "demo-script.sh"
+  			}
+  			]
+				}
+
+			# passing AWS access keys and secret keys as vars
+			# not recommended to use access keys as variables
+			# if you have creds in ~/.aws/credentials file
+				# supported settings:
+				# aws_access_key_id  =  aws access key
+				# aws_secret_access_key = aws secret key
+				# aws_session_token  =  Only required if you are using temporary securit creds
+				# aws region  =  region
+				# output  = out put format (JSON,TXT, or table)
+			# you don't need to pass access keys as vars
+
+			sample aws credentials:
+			~/.aws/config
+			[defautl]
+			aws_access_key_id=AKIAIOSFODNN7EXAMPLE
+			aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+			~/.aws/config
+			[default]
+			region=us-west-2
+			output=json
+			
+			[profile user2]
+			region=us-east-1
+			output=text
+		
+			# used a shell provisioner which calls a demo-script.sh file
+			
+			# packer supports the following provisioners:
+			1) Ansible
+			2) Chef
+			3) Salt
+			4) Shell
+			5) Powershell
+			6) Windows cmd
+			7) File - For copying file from local directory to VM image
+
+Building a packer template:
+	- need to execute the `build` command with the JSON template
+	- ex)
+			packer build apache.json
+
+  Using Variable Within Template:
+  	- use packer variables for dynamic configureation of packing AMI. 
+        "variables": {
+          "instance_type": "t2.medium",
+          "region": "us-west-1"
+        }
+    - the declared variables can be accessed in other parts of the template using 
+      "{{ user 'your_varible_name' }}" = ex below
+"instance_type": "{{user `instance_type`}}",
+        "region": "{{user `region`}}"
+
+  Using Environment variables in templates:
+    - Packer lets you use system env variables
+    - First you need to declare var in the variables section to use it
+      in other parts of the template
+    - ex) you want to use script path env var that holds the path to a shell
+      script. You can declare it like.
+      "variables": {
+        "script_path": "{{env `SCRIPT_PATH`}}",
+      }
+    - after declaring it you can use the var like so.
+        "provisioners": [
+        {
+          "type": "shell",
+          "script": "{{user `script_path` }}/demo-script.sh"
+        }
+        ]
+
+  Using command line vars:
+    - First you ned to declare the variable nmae in the var block as shown below.
+      "app_name": "{{app_name_cmd_var}}"
+    - you can pass this at run time using the '-var' tag followd by the variable declaration
+    - also can be used in a template using normal inerpolation ex)
+      `packer build -var 'app_name_cmd_var=apache' apache.json`
+
+  Using a json file:
+    - can pass a json file to the vars block to the build command like
+      `packer build -var-file=variables.json apache.json`
+      variables.json = is the varible file 
+      apache.json    = the build file
+
+Packing an Image:
+  - in this ex, we will bake a t2.micro AMI using a shell provisioner. A shell script
+    with an update and HTTPD install instructions.
+  - Will assume you have aws access key and region set in the ~/.aws.credentials file
+  - here we will use 'Oregon' region and redhat AMI with AMI id 'ami-6f68cf0f'
+  - getting started:
+    mkdir packer
+    create a demo-script.sh file with 
+    #!/bin/bash
+    sudo yum -y update
+    sudo yum install -y httpd
+    # above script updates the repo and installs httpd
+		- Create an httpd.json script with the following info.
+			{
+			    "variables": {
+			      "ami_id": "ami-6f68cf0f",
+			      "app_name": "httpd"
+			    },
+			
+			    "builders": [{
+			      "type": "amazon-ebs",
+			      "region": "eu-west-1",
+			      "source_ami": "{{user `ami_id`}}",
+			      "instance_type": "t2.micro",
+			      "ssh_username": "ec2-user",
+			      "ami_name": "PACKER-DEMO-{{user `app_name` }}",
+			      "tags": {
+			          "Name": "PACKER-DEMO-{{user `app_name` }}",
+			          "Env": "DEMO"
+			
+			        }
+			    }],
+			
+			    "provisioners": [
+			      {
+			        "type": "shell",
+			        "script": "demo-script.sh"
+			      }
+			    ]
+			
+			  }
+    - the template is ready, now we can execute the template for packing the AMI
+      with HTTPD installation
+
+    - validate packer files and inspect our template:
+      packer validate httpd.json
+      packer inspect httpd.json
+      * if you are using command line variables, you should pass them when validating. Like so.
+      ex) packer validate -var='env=TEST' httpd.json
+    - Build a new AMI, with the following:
+      packer build httpd.json
+
+Pro Tips:
+  - you can capture the output of the image build to a file using.
+    packer build httpd.json 2>&1 | sudo tee output.txt
+  - You can extract the name fo the AMI to a file named ami.txt using.
+    tail -2 output.txt | head -2 | awk 'match($0, /ami-.*/) { print substr($0, RSTART, RLENGTH) }' > sudo ami.txt
+  - vm has to have HVM virtualization
+      
+
+AWS Notes:
+  - Root type device = ebs
+  - virtualization type = hvm

@@ -1,0 +1,28 @@
+{
+  "variables": {
+    "ami_id": "ami-036f8547",
+    "app_name": "test-app"
+  },
+
+  "builders": [{
+    "type": "amazon-ebs",
+    "region": "us-west-1",
+    "source_ami": "{{user `ami_id`}}",
+    "instance_type": "t2.micro",
+    "ssh_username": "ec2-user",
+    "ami_name": "PACKER-DEMO-{{user `app_name` }}",
+    "tags": {
+        "Name": "PACKER-DEMO-{{user `app_name` }}",
+        "Env": "DEMO"
+
+      }
+  }],
+
+  "provisioners": [
+    {
+      "type": "shell",
+      "script": "demo-script.sh"
+    }
+  ]
+
+}
